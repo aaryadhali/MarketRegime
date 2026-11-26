@@ -1,9 +1,9 @@
 import time
-from src.config import START_DATE, TICKERS
-from src.db import get_connection, insert_prices
+from src.config import START_DATE, TICKERS, FRED_SERIES
+from src.db import get_connection, insert_prices, insert_indicators
 from src.sources.yahoo import fetch_prices
+from src.sources.fred import fetch_fred, get_fred_client
 
-#START = "2005-01-01"
 
 def load_ticker(con, ticker:str) -> int:
     df = fetch_prices(ticker, START_DATE)
@@ -13,8 +13,14 @@ def load_ticker(con, ticker:str) -> int:
     #return insert_prices(con, df)
     return added
 
+def load_fred_series(con, series: str, fred) -> int:
+    df = fetch_fred(series, START_DATE, fred)
+    added = insert_indicators(con, df)
+    print(f"{series}: downloaded {len(df)}, added {added}")
+    return added
 
-def print_summary(con) -> None:
+
+def print_market_summary(con) -> None:
     summary = con.execute("""
         SELECT ticker,
             COUNT(*) AS rows,
@@ -26,6 +32,19 @@ def print_summary(con) -> None:
     """).df()
     print("\n=====Market Data Table Summary=====")
     print(summary.to_string(index=False))
+
+def print_indicator_summary(con) -> None:
+    indicator_summary = con.execute("""
+        SELECT series,
+            COUNT(*) AS rows,
+            MIN(date) AS first_date,
+            MAX(date) AS last_date
+        FROM fred_indicators
+        GROUP BY series
+        ORDER BY series
+    """).df()
+    print("\n=====Fred Indicators Table Summary=====")
+    print(indicator_summary.to_string(index=False))
 
 def main():
     con = get_connection()
@@ -39,10 +58,20 @@ def main():
             print(f"{ticker}: {e}")
             failed.append(ticker)
         time.sleep(1)
+
+    fred = get_fred_client()
+    for series in FRED_SERIES:
+        try:
+            load_fred_series(con, series, fred)
+        except Exception as e:
+            print(f"{series}: {e}")
+            failed.append(series)
+        time.sleep(0.5)
    
     if failed:
         print("Failed", failed)
-    print_summary(con)
+    print_market_summary(con)
+    print_indicator_summary(con)
     con.close()
 
 if __name__ == "__main__":

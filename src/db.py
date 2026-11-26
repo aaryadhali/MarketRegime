@@ -23,9 +23,8 @@ SCHEMA = [
             date DATE,
             series VARCHAR,
             value DOUBLE,
-            source VARCHAR
-            PRIMARY KEY (date, series)
-        )
+            source VARCHAR,
+            PRIMARY KEY (date, series))
     """,
 ]
 
@@ -56,7 +55,7 @@ def insert_prices(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
     after = con.execute("SELECT COUNT(*) FROM market_data").fetchone()[0]
     return after - before
 
-def add_indicators(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
+def insert_indicators(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
     #insert rows into indicators
     if df.empty:
         return 0
